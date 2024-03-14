@@ -1,19 +1,16 @@
 from socket import *
 import threading
 import rsa
-
-server_address = (4080, 'localhost')
+from Crypto.Cipher import AES as aes
 
 class Certificadora():
-    def __init__(self): #Cada chave publica corresponde a posicao de criação do no
-        self.lista_chaves = []
+    def __init__(self): #Cada chave publica corresponde ao id do no
+        self.chaves_pub = {}
 
 class Rede():
-    def __init__(self, roteamento_dir, roteamento_esq): #Estrutura de lista duplamente ligada para representar a topologia em malha
+    def __init__(self): #Estrutura de lista duplamente ligada para representar a topologia em malha
         self.inicio = None
         self.ultimo = None
-        self.dir = roteamento_dir
-        self.esq = roteamento_esq
 
     def insert(self, cliente):
         if self.inicio == None: self.inicio = cliente
@@ -28,41 +25,58 @@ class Rede():
 
 class Cliente():    #Cada no eh um processo com socket e chaves unicas
     def __init__(self, roteamento_dir, roteamento_esq):
+        self.id = #GERAR ID
         self.dir = roteamento_dir
         self.esq = roteamento_esq
         self.socket = None
+        self.endereco = [] 
         self.chave_priv = None 
+        self.chave_sim = {}
+        self.thread = None
 
-    def certificate(self, certificadora, posicao):      #Cria as chaves e deixa salvas
+    def certificate(self, certificadora):      #Cria as chaves assimetricas de cada no (pub na certificadora e priv no cliente)
         chave_pub, chave_priv = rsa.newkeys(512)
 
         self.chave_priv = chave_priv
-        certificadora.lista_chaves[posicao] = chave_pub
+        certificadora.chaves_pub[self.id] = chave_pub
 
     def connect(self):      #Inicia a thread do socket para enviar mensagens
         self.socket = socket(AF_INET, SOCK_DGRAM) 
+        self.endereco = #PENSAR EM COMO CRIAR ENDEREÇO
 
-        threading.Thread(target=self.communicate).start()
-
-    def communicate(self, certificadora, posicao):      #Envia mensagens criptografadas
-        while True:
-            mensagem = input('')
-            enc_mensagem = rsa.encrypt(mensagem.encode(), self.chave_priv)
-            dec_mensagem = rsa.decrypt((enc_mensagem, certificadora.lista_chaves[posicao]).decode())
-
+        self.thread = threading.Thread(target=self.communicate).start()
+                
     def disconnect(self):
         self.socket.close()
+        self.thread.join()
 
-def rcv():
-    ...
+    def communicate(self, certificadora, posicao):      #Envia mensagens criptografadas
+        ...
 
-def snd():
-    ...
+    def key_exchange(self, certificadora, dupla):       #Cria e troca as chaves simetricas
+        chave = #GERAR COM AES
+        self.chave_sim[dupla.id] = chave
+        chave_cript = rsa.encrypt(chave.encode(), certificadora.chaves_pub[dupla.id])
+        self.socket.sendto(chave_cript, dupla.endereco)
+
+    def rcv(self, emissor, msg, certificadora):
+        msg_descripto = rsa.decrypt(msg, self.chave_priv.decode())
+        if msg_descripto == 'oi, vamos trocar chaves':
+            self.key_exchange(certificadora, emissor)
+
+    def send(self, remetente, certificadora):
+        msg = input()
+        msg_cripto = rsa.encrypt(msg.encode(), certificadora.chaves_pub[remetente.id]) 
+        self.socket.sendto(msg_cripto, remetente.endereco)
+
 
 def main():
     rede = Rede()
     certificadora = Certificadora()
     for i in range(6): #Criacao dos nos
         cliente = Cliente()
-        cliente.certificate(certificadora, i)
+        rede.insert(cliente)
+        cliente.certificate(certificadora)
         cliente.connect()
+
+main()
