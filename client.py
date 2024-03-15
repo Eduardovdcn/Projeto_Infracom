@@ -2,6 +2,7 @@ from socket import *
 import threading
 import rsa
 from Crypto.Cipher import AES as aes
+from Crypto.Random import get_random_bytes
 
 class Certificadora():
     def __init__(self): #Cada chave publica corresponde ao id do no
@@ -24,8 +25,8 @@ class Rede():
         self.ultimo = cliente
 
 class Cliente():    #Cada no eh um processo com socket e chaves unicas
-    def __init__(self, roteamento_dir, roteamento_esq):
-        self.id = #GERAR ID
+    def __init__(self, roteamento_dir, roteamento_esq, id):
+        self.id = id
         self.dir = roteamento_dir
         self.esq = roteamento_esq
         self.socket = None
@@ -54,17 +55,22 @@ class Cliente():    #Cada no eh um processo com socket e chaves unicas
         ...
 
     def key_exchange(self, certificadora, dupla):       #Cria e troca as chaves simetricas
-        chave = #GERAR COM AES
+        chave = get_random_bytes(16)
         self.chave_sim[dupla.id] = chave
         chave_cript = rsa.encrypt(chave.encode(), certificadora.chaves_pub[dupla.id])
         self.socket.sendto(chave_cript, dupla.endereco)
 
-    def rcv(self, emissor, msg, certificadora):
+    def handle_key(self, emissor, msg, certificadora):
+        self.socket.recvfrom(256, emissor.endereco)
         msg_descripto = rsa.decrypt(msg, self.chave_priv.decode())
+
         if msg_descripto == 'oi, vamos trocar chaves':
             self.key_exchange(certificadora, emissor)
 
-    def send(self, remetente, certificadora):
+        else:
+            self.chave_sim[emissor.id] = msg_descripto
+
+    def ask_key(self, remetente, certificadora):
         msg = input()
         msg_cripto = rsa.encrypt(msg.encode(), certificadora.chaves_pub[remetente.id]) 
         self.socket.sendto(msg_cripto, remetente.endereco)
@@ -73,8 +79,8 @@ class Cliente():    #Cada no eh um processo com socket e chaves unicas
 def main():
     rede = Rede()
     certificadora = Certificadora()
-    for i in range(6): #Criacao dos nos
-        cliente = Cliente()
+    for id in range(6): #Criacao dos nos
+        cliente = Cliente(roteamento_esq=rede.inicio, roteamento_dir=rede.ultimo, id=id)
         rede.insert(cliente)
         cliente.certificate(certificadora)
         cliente.connect()
