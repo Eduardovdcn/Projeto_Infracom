@@ -1,62 +1,11 @@
+from rede import Rede
 from socket import *
-import threading
 import rsa
 from Crypto.Cipher import AES 
 from Crypto.Random import get_random_bytes
 
 HEADER = 256
 FORMAT = 'utf-8'
-
-class Certificadora():
-    def __init__(self): #Cada chave publica corresponde ao id do no
-        self.chaves_pub = {}
-        self.endereco = ('localhost', 6060)
-        self.socket = socket(AF_INET, SOCK_DGRAM)
-
-    def rcv_pubkey(self, id):   #Recebe a chave pub na certificacao
-        pubkey = self.socket.rcv(256).decode(FORMAT)
-        self.chaves_pub[id] = pubkey
-
-class Rede():
-    def __init__(self): #Estrutura de lista duplamente ligada para representar a topologia em malha
-        self.inicio = None
-        self.ultimo = None
-        self.roteamento = [
-        [0, 'dir', 'dir', 'dir', 'esq', 'esq'],
-        ['esq', 0, 'dir', 'dir', 'dir', 'esq'],
-        ['esq', 'esq', 0, 'dir', 'esq', 'esq'],
-        ['dir', 'esq', 'esq', 0, 'dir', 'dir'],
-        ['dir', 'dir', 'esq', 'esq', 0, 'dir'],
-        ['dir', 'dir', 'dir', 'esq', 'esq', 0]
-        ]
-
-    def insert(self, cliente):
-        if self.inicio == None: self.inicio = cliente
-        
-        if self.ultimo != None:
-            cliente.esq = self.ultimo
-            self.ultimo.dir = cliente
-            cliente.dir = self.inicio
-            self.inicio.esq = cliente
-
-        self.ultimo = cliente
-
-    def routing(self, emissor, remetente, msg, tam_msg):
-        dir = self.roteamento[emissor.id][remetente.id]
-
-        if dir == 'esq': 
-            prox_emissor = emissor.esq
-        else:
-            prox_emissor = emissor.dir
-
-        emissor.socket.sendto(msg.encode(FORMAT), prox_emissor.endereco)
-        msg_rcv = prox_emissor.socket.rcv(tam_msg)
-
-        if prox_emissor != remetente:
-            return self.routing(self, prox_emissor, remetente, msg_rcv, tam_msg)
-        else:
-            return msg_rcv
-        
 
 class Cliente():    #Cada no eh um processo com socket e chaves unicas
     def __init__(self, roteamento_dir, roteamento_esq, id):
@@ -160,36 +109,3 @@ class Cliente():    #Cada no eh um processo com socket e chaves unicas
             cliente.socket.sendto(send_msg.encode(FORMAT), self.endereco)
 
             cliente = cliente.dir
-
-def main():
-    rede = Rede()
-    certificadora = Certificadora()
-
-    for id in range(6): #Criacao dos nos com certificado e sockets
-        cliente = Cliente(roteamento_esq=rede.inicio, roteamento_dir=rede.ultimo, id=id)
-        rede.insert(cliente)
-        cliente.certificate(certificadora)
-
-    for _ in range(6): #Para cada no
-        no_atual = rede.inicio
-        
-        cliente = rede.inicio.dir
-        while cliente.id != no_atual.id: #Comunica com todos os outros nos
-            if not no_atual.conexao[cliente.id]: #Caso nao exista conexao, eh criada como thread e eh mantido o registro da thread
-                thread_comunicacao = threading.Thread(target=no_atual.communicate(), args=(certificadora, cliente))
-                no_atual.lista_threads.append(thread_comunicacao)
-                no_atual.conexao[cliente.id] = True
-                cliente.conexao[no_atual.id] = True
-                thread_comunicacao.start()
-
-            cliente = cliente.dir   #Itera sobre os proximos nos
-
-        for thread in no_atual.lista_threads: #Espera todas as threads terminarem para comecar o broadcast
-            thread.join()
-
-        thread_broadcast = threading.Thread(target=no_atual.broadcast(), args=(certificadora))
-        thread_broadcast.start()
-
-        no_atual = no_atual.dir   #Itera sobre os proximos nos
-
-main()
