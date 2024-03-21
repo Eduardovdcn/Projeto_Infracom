@@ -21,6 +21,14 @@ class Rede():
     def __init__(self): #Estrutura de lista duplamente ligada para representar a topologia em malha
         self.inicio = None
         self.ultimo = None
+        self.roteamento = [
+        [0, 'dir', 'dir', 'dir', 'esq', 'esq'],
+        ['esq', 0, 'dir', 'dir', 'dir', 'esq'],
+        ['esq', 'esq', 0, 'dir', 'esq', 'esq'],
+        ['dir', 'esq', 'esq', 0, 'dir', 'dir'],
+        ['dir', 'dir', 'esq', 'esq', 0, 'dir'],
+        ['dir', 'dir', 'dir', 'esq', 'esq', 0]
+        ]
 
     def insert(self, cliente):
         if self.inicio == None: self.inicio = cliente
@@ -32,6 +40,23 @@ class Rede():
             self.inicio.esq = cliente
 
         self.ultimo = cliente
+
+    def routing(self, emissor, remetente, msg, tam_msg):
+        dir = self.roteamento[emissor.id][remetente.id]
+
+        if dir == 'esq': 
+            prox_emissor = emissor.esq
+        else:
+            prox_emissor = emissor.dir
+
+        emissor.socket.sendto(msg.encode(FORMAT), prox_emissor.endereco)
+        msg_rcv = prox_emissor.socket.rcv(tam_msg)
+
+        if prox_emissor != remetente:
+            return self.routing(self, prox_emissor, remetente, msg_rcv, tam_msg)
+        else:
+            return msg_rcv
+        
 
 class Cliente():    #Cada no eh um processo com socket e chaves unicas
     def __init__(self, roteamento_dir, roteamento_esq, id):
@@ -52,13 +77,6 @@ class Cliente():    #Cada no eh um processo com socket e chaves unicas
         self.socket.sendto(chave_pub.encode(FORMAT), certificadora.endereco)
 
         certificadora.rcv_pubkey(self.id)
-
-    def send_header(self, msg, cliente):    #Define o tamanho da mensagem que sera mandada
-        tamanho_msg = len(msg)
-        tamanho_msg = str(tamanho_msg).encode(FORMAT)
-        tamanho_msg = b' ' * (HEADER - len(tamanho_msg))
-
-        self.socket.sendto(tamanho_msg, cliente.endereco)
 
     def key_exchange(self, certificadora, dupla):       #Cria e troca as chaves simetricas
         chave = get_random_bytes(16)
@@ -105,15 +123,15 @@ class Cliente():    #Cada no eh um processo com socket e chaves unicas
                 print("The message is authentic:", plaintext)
             except ValueError:
                 print("Key incorrect or message corrupted")
-
-    def send_msg(self, remetente):
+        
+    def send_msg(self, remetente, rede):
         msg = input()
         cipher = AES.new(self.chave_sim[remetente.id], AES.MODE_EAX)        #Criptografa a mensagem
         ciphertext, tag = cipher.encrypt_and_digest(msg)
         nonce = cipher.nonce
 
         self.send_header(msg, remetente)        #Envia o tamanho da mensagem
-        self.socket.sendto((ciphertext, nonce, tag).encode(FORMAT), remetente.endereco)     #Envia a mensagem
+        rede.routing(self, remetente, )   #Envia a mensagem
 
     def communicate(self, certificadora, cliente):     #Envia mensagens criptografadas
         while self.conexao[cliente.id]:
