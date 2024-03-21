@@ -1,37 +1,24 @@
 from rede import Rede
-from certificadora import Certificadora
 from cliente import Cliente
-import threading
 
+rede = Rede()
 def main():
-    rede = Rede()
-    certificadora = Certificadora()
+    cliente = Cliente(roteamento_esq=rede.inicio, roteamento_dir=rede.ultimo, id=rede.cont)
+    cliente.create_socket()
+    rede.insert(cliente)
+    cliente.certificate()
 
-    for id in range(6): #Criacao dos nos com certificado e sockets
-        cliente = Cliente(roteamento_esq=rede.inicio, roteamento_dir=rede.ultimo, id=id)
-        rede.insert(cliente)
-        cliente.certificate(certificadora)
+    while True:      #Garante que todos os nos foram criados
+        if rede.cont == 6:
+            remetente = cliente.dir
+            while cliente.id != remetente.id: #Comunica com todos os outros nos
+                if not remetente.conexao[cliente.id]: #Caso nao exista conexao, eh criada como thread e eh mantido o registro da thread
+                    print(f'Conexão entre cliente {cliente.id} e cliente {remetente.id} estabelecida')
+                    remetente.conexao[cliente.id] = True
+                    cliente.conexao[remetente.id] = True
 
-    for _ in range(6): #Para cada no
-        no_atual = rede.inicio
-        
-        cliente = rede.inicio.dir
-        while cliente.id != no_atual.id: #Comunica com todos os outros nos
-            if not no_atual.conexao[cliente.id]: #Caso nao exista conexao, eh criada como thread e eh mantido o registro da thread
-                thread_comunicacao = threading.Thread(target=no_atual.communicate(), args=(certificadora, cliente))
-                no_atual.lista_threads.append(thread_comunicacao)
-                no_atual.conexao[cliente.id] = True
-                cliente.conexao[no_atual.id] = True
-                thread_comunicacao.start()
+                remetente = remetente.dir   #Itera sobre os proximos nos
 
-            cliente = cliente.dir   #Itera sobre os proximos nos
-
-        for thread in no_atual.lista_threads: #Espera todas as threads terminarem para comecar o broadcast
-            thread.join()
-
-        thread_broadcast = threading.Thread(target=no_atual.broadcast(), args=(certificadora))
-        thread_broadcast.start()
-
-        no_atual = no_atual.dir   #Itera sobre os proximos nos
+            cliente.broadcast()
 
 main()
