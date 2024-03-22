@@ -34,16 +34,14 @@ class Rede():
         else:
             self.socket.sendto(f'{self.clientes[id-1]}+{self.clientes[id+1]}'.encode(FORMAT), endereco)
 
-    def routing(self, emissor, remetente):
-            msg = self.socket.recv(tam_msg).decode(FORMAT)
-            prox = self.roteamento[emissor.id][remetente.id]
+    def routing(self, emissor, remetente, msg):
+            direcao = self.roteamento[emissor.id][remetente.id]
 
-            if prox == 'ant': 
+            if direcao == 'ant': 
                 prox_emissor = emissor.ant
             else:
                 prox_emissor = emissor.prox
 
-            emissor.send_header(remetente)
             emissor.socket.sendto(msg.encode(FORMAT), prox_emissor.endereco)
 
             if prox_emissor != remetente:
@@ -81,7 +79,9 @@ class Rede():
                 self.socket.sendto(str(self.clientes[id]).encode(FORMAT), cliente)
 
             elif msg.startswith(b'O endereco do remetente eh'):
-                self.routing()
+                endereco_remetente = msg.split(maxsplit=1)
+                msg = self.socket.recv(1024).decode(FORMAT)
+                self.routing(endereco, endereco_remetente, msg)
 
 
 rede = Rede()

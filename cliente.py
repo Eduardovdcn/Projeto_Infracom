@@ -53,8 +53,10 @@ class Cliente():    #Cada no eh um processo com socketves unicas
 
         return dupla_endereco
 
-    def routing(self, endereco):
-        self.socket.sendto('O endereco do remetente eh '.encode(FORMAT)+endereco.encode(FORMAT))
+    def routing(self, endereco, msg):
+        self.socket.sendto('O_endereco_do_remetente_eh '.encode(FORMAT)+endereco.encode(FORMAT))
+        self.socket.sendto(msg.encode(FORMAT))
+
 
     def send(self, dupla_id, dupla_endereco):
         self.ask_key(dupla_id)
@@ -183,12 +185,12 @@ class Cliente():    #Cada no eh um processo com socketves unicas
                 
                     self.conexao[dupla_id] = False
 
-                # cliente.broadcast()
-                # for _  in range(5):
-                #     remetente.confirm_broadcast(cliente)
-                #     cliente.rcv_confirmation()
+                cliente.broadcast()
+                for _  in range(5):
+                    remetente.confirm_broadcast(cliente)
+                    cliente.rcv_confirmation()
 
-                #     remetente = remetente.dir
+                    remetente = remetente.dir
 
             else:
                 self.socket.sendto('Esperando criar clientes... '.encode(FORMAT), cliente.rede_endereco)
