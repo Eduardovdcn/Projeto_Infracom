@@ -1,27 +1,16 @@
+from socket import *
 FORMAT = 'utf-8'
 HEADER = 256
 
 class Rede():
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(Rede, cls).__new__(cls)
-            # Inicialize os atributos da instância aqui, se necessário
-        return cls._instance
-
-    def __init__(self): #Estrutura de lista duplamente ligada para representar a topologia em malha
+    def __init__(self): #Cada chave publica corresponde ao id do no
         self.inicio = None
         self.ultimo = None
-        self.cont = 0
-        self.roteamento = [
-        [0, 'dir', 'dir', 'dir', 'esq', 'esq'],
-        ['esq', 0, 'dir', 'dir', 'dir', 'esq'],
-        ['esq', 'esq', 0, 'dir', 'esq', 'esq'],
-        ['dir', 'esq', 'esq', 0, 'dir', 'dir'],
-        ['dir', 'dir', 'esq', 'esq', 0, 'dir'],
-        ['dir', 'dir', 'dir', 'esq', 'esq', 0]
-        ]
+        self.cont = 0 
+        self.clientes = []
+        self.endereco = ('localhost', 8050)
+        self.socket = socket(AF_INET, SOCK_DGRAM) 
+        self.socket.bind(self.endereco)
 
     def insert(self, cliente):
         if self.inicio == None: self.inicio = cliente
@@ -33,23 +22,31 @@ class Rede():
             self.inicio.esq = cliente
 
         self.ultimo = cliente
+        self.clientes.append(cliente)
         self.cont += 1
 
-    def routing(self, emissor, remetente, msg):
-        dir = self.roteamento[emissor.id][remetente.id]
+    def routing(self, emissor, remetente):
+        tam_msg = self.socket.recv(HEADER).decode(FORMAT)
+        if tam_msg:      #Caso a mensagem nao seja nula
+            tam_msg = int(tam_msg)
+            msg = self.socket.recv(tam_msg).decode(FORMAT)
+            msg = self.socket.recv(tam_msg)
+            dir = self.roteamento[emissor.id][remetente.id]
 
-        if dir == 'esq': 
-            prox_emissor = emissor.esq
-        else:
-            prox_emissor = emissor.dir
+            if dir == 'esq': 
+                prox_emissor = emissor.esq
+            else:
+                prox_emissor = emissor.dir
 
-        emissor.send_header(remetente)
-        emissor.socket.sendto(msg.encode(FORMAT), prox_emissor.endereco)
+            emissor.send_header(remetente)
+            emissor.socket.sendto(msg.encode(FORMAT), prox_emissor.endereco)
 
-        if prox_emissor != remetente:
-            tam_msg = prox_emissor.socket.rcv(HEADER).decode(FORMAT)
-            msg_rcv = prox_emissor.socket.rcv(tam_msg).decode(FORMAT)
-            return self.routing(self, prox_emissor, remetente, msg_rcv, tam_msg)
-        else:
-            return msg_rcv
+            if prox_emissor != remetente:
+                tam_msg = prox_emissor.socket.rcv(HEADER).decode(FORMAT)
+                msg_rcv = prox_emissor.socket.rcv(tam_msg).decode(FORMAT)
+                return self.routing(self, prox_emissor, remetente, msg_rcv, tam_msg)
+            else:
+                return msg_rcv
 
+    def get_Client(self, id_cliente):
+        return self.clientes[id_cliente]
