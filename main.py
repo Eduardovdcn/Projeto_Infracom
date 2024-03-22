@@ -4,32 +4,23 @@ FORMAT = 'utf-8'
 HEADER = 256
 
 def create_node():
-    
-    cliente = Cliente(roteamento_esq=rede.inicio, roteamento_dir=rede.ultimo, id=rede.cont, rede_endereco=('localhost', 8050), certificadora_endereco=('localhost', 8090))
-    cliente.create_socket()
-    rede.insert(cliente)
+    cliente = Cliente(rede_endereco=('localhost', 8050), certificadora_endereco=('localhost', 8090))
+    cliente.insert(cliente)
     cliente.certificate()
 
     return cliente
-
-def send_header(self, msg, remetente):    #Define o tamanho da mensagem que sera mandada
-        tamanho_msg = len(msg)
-        tamanho_msg = str(tamanho_msg).encode(FORMAT)
-        tamanho_msg = b' ' * (HEADER - len(tamanho_msg))
-
-        self.socket.sendto(tamanho_msg, remetente.endereco)
 
 def main():
     cliente = create_node()
 
     while True:
-        if rede.cont == 6:
-            id = input('Digite o ID do cliente que deseja se comunicar (200 para encerrar)')
+        if rede_cont == 6:
+            id = int(input('Digite o ID do cliente que deseja se comunicar (200 para encerrar)'))
             if id == 200: break
-            remetente = rede.get_Client(id)
+            dupla_endereco = cliente.connect(id)
 
             cliente.ask_key(remetente)
-            rede.routing(cliente, remetente)
+            cliente.routing(dupla_endereco)
             remetente.send_key(cliente)
             rede.routing(remetente, cliente)
             cliente.handle_key(remetente)
@@ -52,5 +43,10 @@ def main():
                 cliente.rcv_confirmation()
 
                 remetente = remetente.dir
+
+        else:
+            cliente.socket.sendto('Esperando criar clientes... '.encode(FORMAT), cliente.rede_endereco)
+            rede_cont = cliente.socket.recv(1024)
+            rede_cont = int(rede_cont)
 
 main()

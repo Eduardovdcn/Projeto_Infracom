@@ -1,4 +1,5 @@
 from socket import *
+import json
 FORMAT = 'utf-8'
 HEADER = 256
 
@@ -7,36 +8,40 @@ class Rede():
         self.inicio = None
         self.ultimo = None
         self.cont = 0 
-        self.clientes = []
+        self.clientes = [
+            ('127.0.0.1', 9080),
+            ('127.0.0.1', 9081),
+            ('127.0.0.1', 9082),
+            ('127.0.0.1', 9083),
+            ('127.0.0.1', 9084),
+            ('127.0.0.1', 9085)
+        ]
         self.endereco = ('localhost', 8050)
         self.socket = socket(AF_INET, SOCK_DGRAM) 
         self.socket.bind(self.endereco)
+        self.roteamento = [
+        [0, 'prox', 'prox', 'prox', 'ant', 'ant'],
+        ['ant', 0, 'prox', 'prox', 'prox', 'ant'],
+        ['ant', 'ant', 0, 'prox', 'ant', 'ant'],
+        ['prox', 'ant', 'ant', 0, 'prox', 'prox'],
+        ['prox', 'prox', 'ant', 'ant', 0, 'prox'],
+        ['prox', 'prox', 'prox', 'ant', 'ant', 0]
+        ]
 
-    def insert(self, cliente):
-        if self.inicio == None: self.inicio = cliente
-        
-        if self.ultimo != None:
-            cliente.esq = self.ultimo
-            self.ultimo.dir = cliente
-            cliente.dir = self.inicio
-            self.inicio.esq = cliente
-
-        self.ultimo = cliente
-        self.clientes.append(cliente)
-        self.cont += 1
+    def insert(self, id, endereco):
+        if id == 5:
+            self.socket.sendto(f'{self.clientes[id-1]}+{self.clientes[0]}'.encode(FORMAT), endereco)
+        else:
+            self.socket.sendto(f'{self.clientes[id-1]}+{self.clientes[id+1]}'.encode(FORMAT), endereco)
 
     def routing(self, emissor, remetente):
-        tam_msg = self.socket.recv(HEADER).decode(FORMAT)
-        if tam_msg:      #Caso a mensagem nao seja nula
-            tam_msg = int(tam_msg)
             msg = self.socket.recv(tam_msg).decode(FORMAT)
-            msg = self.socket.recv(tam_msg)
-            dir = self.roteamento[emissor.id][remetente.id]
+            prox = self.roteamento[emissor.id][remetente.id]
 
-            if dir == 'esq': 
-                prox_emissor = emissor.esq
+            if prox == 'ant': 
+                prox_emissor = emissor.ant
             else:
-                prox_emissor = emissor.dir
+                prox_emissor = emissor.prox
 
             emissor.send_header(remetente)
             emissor.socket.sendto(msg.encode(FORMAT), prox_emissor.endereco)
@@ -48,5 +53,35 @@ class Rede():
             else:
                 return msg_rcv
 
-    def get_Client(self, id_cliente):
+    def getClient(self, id_cliente):
         return self.clientes[id_cliente]
+        
+    def listen(self):
+        while True:
+            print('123')
+            msg, endereco = self.socket.recvfrom(1024)
+            print(msg)
+
+            if msg.startswith(b'Qual eh o meu id'):
+                self.socket.sendto(str(self.cont).encode(FORMAT), ('localhost', 8097))
+                self.cont += 1
+
+            if msg.startswith(b'Insira-me'):
+                id = msg.split(maxsplit=1)[1].decode(FORMAT)
+                id = int(id)
+                self.insert(id, endereco)
+
+            elif msg.startswith(b'Esperando criar clientes... '):
+                self.socket.sendto(str(self.cont).encode(FORMAT), endereco)
+
+            elif msg.startswith(b'Quero_me_conectar_com'):
+                id = msg.split(maxsplit=1)[1]
+                cliente = self.getClient(id)
+                self.socket.sendto(cliente.endereco.encode(FORMAT), endereco)
+
+            elif msg.startswith(b'O endereco do remetente eh'):
+                self.routing()
+
+
+rede = Rede()
+rede.listen()        
