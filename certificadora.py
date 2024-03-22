@@ -13,11 +13,10 @@ class Certificadora():
     def listen(self):
         print(self.endereco)
         while True:
-            print('123')
             msg, endereco = self.socket.recvfrom(1024)
             print(msg)
             if msg.startswith(b'certificate'):
-                chave_pub_bytes = msg.split(maxsplit=1)[1]
+                chave_pub_bytes = self.socket.recv(1024)
                 print(chave_pub_bytes)
                 id = endereco[1] - 8080
                 chave_pub = rsa.PublicKey.load_pkcs1(chave_pub_bytes)
@@ -25,9 +24,11 @@ class Certificadora():
                 print(self.chaves_pub[id])
 
             elif msg.startswith(b'Qual'):
-                remetente_id = endereco[1] - 8080
+                text, id = msg.split()
+                remetente_id = int(id)
+                print(self.chaves_pub[remetente_id])
                 chave_pub_bytes = rsa.PublicKey.save_pkcs1(self.chaves_pub[remetente_id])
-                self.socket.sendto((chave_pub_bytes).encode(FORMAT), endereco)
+                self.socket.sendto(chave_pub_bytes, endereco)
 
 certificadora = Certificadora()
 certificadora.listen()

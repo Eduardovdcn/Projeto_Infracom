@@ -39,13 +39,16 @@ class Cliente():    #Cada no eh um processo com socketves unicas
 
     def certificate(self):      #Cria as chaves assimetricas de cada no (pub na certificadora e priv no cliente)
         chave_pub, chave_priv = rsa.newkeys(256)
+        print(chave_pub)
+        print(chave_priv)
         chave_pub_bytes = rsa.PublicKey.save_pkcs1(chave_pub)
 
         self.chave_priv = chave_priv
-        self.socket.sendto(b'certificate '+chave_pub_bytes, self.certificadora_endereco)
+        self.socket.sendto('certificate'.encode(FORMAT), self.certificadora_endereco)
+        self.socket.sendto(chave_pub_bytes, self.certificadora_endereco)
 
     def connect(self, id):
-        self.socket.sendto('Quero_me_conectar_com '.encode(FORMAT)+id.encode(FORMAT), self.rede_endereco)
+        self.socket.sendto('Quero_me_conectar_com '.encode(FORMAT)+str(id).encode(FORMAT), self.rede_endereco)
         dupla_endereco = self.socket.recv(1024)
 
         return dupla_endereco
@@ -80,13 +83,18 @@ class Cliente():    #Cada no eh um processo com socketves unicas
         chave_pub = self.socket.recv(1024).decode(FORMAT)
         chave_cript = rsa.encrypt(chave.encode(), chave_pub)
         # send_header(chave_cript, self.rede_endereco)
-        self.socket.sendto(chave_cript.encode(FORMAT), self.rede_endereco)
+        print('---mandando a chave---')
+        self.socket.sendto(chave_cript, self.rede_endereco)
 
     def send_key(self, dupla_id):    
-        msg = self.socket.recv(1024).decode(FORMAT)
-        msg_descripto = rsa.decrypt(msg, self.chave_priv.decode())
-        if msg_descripto == 'oi, vamos trocar chaves':
-            self.key_exchange(dupla_id)
+        msg = self.socket.recv(1024)
+        print(msg)
+        try:
+            msg_descripto = rsa.decrypt(msg, self.chave_priv)
+            if msg_descripto == 'oi, vamos trocar chaves':
+                self.key_exchange(dupla_id)
+
+        except: pass
 
     def handle_key(self, dupla_id):       #Cria nova chave simetrica e envia criptografia assimetrica ou recebe a chave criptografada
         msg = self.socket.recv(1024).decode(FORMAT)
@@ -100,12 +108,13 @@ class Cliente():    #Cada no eh um processo com socketves unicas
             print('Por favor, digite "oi, vamos trocar chaves" para iniciar o chat')
             msg = input()
 
-        self.socket.sendto(('Qual é a chave pública do cliente ?', dupla_id).encode(FORMAT), self.certificadora_endereco)
-        chave_pub_bytes = self.socket.recv(1024).decode(FORMAT)
+        self.socket.sendto(f'Qual_é_a_chave_pública_do_cliente: {dupla_id}'.encode(FORMAT), self.certificadora_endereco)
+        chave_pub_bytes = self.socket.recv(1024)
         chave_pub = rsa.PublicKey.load_pkcs1(chave_pub_bytes)
+        print(chave_pub)
         msg_cripto = rsa.encrypt(msg.encode(), chave_pub) 
         # send_header(msg_cripto.encode(FORMAT), self.rede_endereco)
-        self.socket.sendto(msg_cripto.encode(FORMAT), self.rede_endereco)
+        self.socket.sendto(msg_cripto, self.rede_endereco)
 
     def rcv_msg(self, dupla_id):     #Recebe mensagens
         ciphertext, nonce, tag = self.socket.recv(1024).decode(FORMAT)    #Recebe a mensagem
@@ -156,18 +165,23 @@ class Cliente():    #Cada no eh um processo com socketves unicas
 
         rede_cont = 0
         while True:
-            if rede_cont == 6:
-                for _ in range()
-                dupla_endereco = self.connect(dupla_id)
+            if rede_cont == 2:
+                for dupla_id in range(5):
+                    if dupla_id == self.id: dupla_id += 1
+                    print(self.id)
+                    print(dupla_id)
+                    dupla_endereco = tuple(self.connect(dupla_id))
+        
+                    print(self.endereco)
+                    print(dupla_endereco)
+                    rcv_thread = threading.Thread(target=self.rcv, args=(dupla_id, dupla_endereco))
+                    rcv_thread.start()
 
-                rcv_thread = threading.Thread(target=self.rcv, args=(dupla_id, dupla_endereco))
-                rcv_thread.start()
-
-                while True:
-                    if self.send(dupla_id, dupla_endereco) == 'sair':
-                        break
+                    while True:
+                        if self.send(dupla_id, dupla_endereco) == 'sair':
+                            break
                 
-                self.conexao[dupla_id] = False
+                    self.conexao[dupla_id] = False
 
                 # cliente.broadcast()
                 # for _  in range(5):
@@ -178,7 +192,8 @@ class Cliente():    #Cada no eh um processo com socketves unicas
 
             else:
                 self.socket.sendto('Esperando criar clientes... '.encode(FORMAT), cliente.rede_endereco)
-                rede_cont = self.socket.recv(1024)
+                rede_cont = self.socket.recv(1024).decode(FORMAT)
+                print(rede_cont)
                 rede_cont = int(rede_cont)
 
 

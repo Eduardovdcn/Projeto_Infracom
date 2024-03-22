@@ -9,12 +9,12 @@ class Rede():
         self.ultimo = None
         self.cont = 0 
         self.clientes = [
-            ('127.0.0.1', 9080),
-            ('127.0.0.1', 9081),
-            ('127.0.0.1', 9082),
-            ('127.0.0.1', 9083),
-            ('127.0.0.1', 9084),
-            ('127.0.0.1', 9085)
+            ('127.0.0.1', 8080),
+            ('127.0.0.1', 8081),
+            ('127.0.0.1', 8082),
+            ('127.0.0.1', 8083),
+            ('127.0.0.1', 8084),
+            ('127.0.0.1', 8085)
         ]
         self.endereco = ('localhost', 8050)
         self.socket = socket(AF_INET, SOCK_DGRAM) 
@@ -66,7 +66,7 @@ class Rede():
                 self.socket.sendto(str(self.cont).encode(FORMAT), ('localhost', 8097))
                 self.cont += 1
 
-            if msg.startswith(b'Insira-me'):
+            elif msg.startswith(b'Insira-me'):
                 id = msg.split(maxsplit=1)[1].decode(FORMAT)
                 id = int(id)
                 self.insert(id, endereco)
@@ -76,8 +76,9 @@ class Rede():
 
             elif msg.startswith(b'Quero_me_conectar_com'):
                 id = msg.split(maxsplit=1)[1]
+                id = int(id)
                 cliente = self.getClient(id)
-                self.socket.sendto(cliente.endereco.encode(FORMAT), endereco)
+                self.socket.sendto(str(self.clientes[id]).encode(FORMAT), cliente)
 
             elif msg.startswith(b'O endereco do remetente eh'):
                 self.routing()
