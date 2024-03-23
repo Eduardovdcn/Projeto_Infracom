@@ -10,20 +10,16 @@ class Certificadora():
         self.socket = socket(AF_INET, SOCK_DGRAM) 
         self.socket.bind(self.endereco)
 
-    def listen(self):
-        print(self.endereco)
+    def listen(self):       #Recebe mensagens enquanto roda
         while True:
             msg, endereco = self.socket.recvfrom(1024)
-            print(msg)
-            if msg.startswith(b'certificate'):
+            if msg.startswith(b'certificate'):      #Certifica o no (recebe a chave pub e salva)
                 chave_pub_bytes = self.socket.recv(1024)
-                print(chave_pub_bytes)
                 id = endereco[1] - 8080
                 chave_pub = rsa.PublicKey.load_pkcs1(chave_pub_bytes)
                 self.chaves_pub[id] = chave_pub
-                print(self.chaves_pub[id])
 
-            elif msg.startswith(b'Qual'):
+            elif msg.startswith(b'Qual'):       #Envia a chave pub do no pelo id
                 text, id = msg.split()
                 remetente_id = int(id)
                 print(self.chaves_pub[remetente_id])
